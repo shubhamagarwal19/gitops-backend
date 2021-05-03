@@ -167,6 +167,11 @@ func (a *APIRouter) GetApplication(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *APIRouter) ListApplications(w http.ResponseWriter, r *http.Request) {
+	user := r.URL.Query().Get("user")
+	if user == "" {
+		http.Error(w, fmt.Sprintf("please provide a valid username"), http.StatusBadRequest)
+		return
+	}
 	appList := &argoV1aplha1.ApplicationList{}
 	var listOptions []ctrlclient.ListOption
 
@@ -186,7 +191,7 @@ func (a *APIRouter) ListApplications(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("apps: %+v", apps)
-	marshalResponse(w, applicationsToAppsResponse(apps))
+	marshalResponse(w, applicationsToAppsResponse(apps, a.k8sClient, user))
 }
 
 func (a *APIRouter) getAuthToken(ctx context.Context, req *http.Request) (string, error) {

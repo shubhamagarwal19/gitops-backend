@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	argoV1aplha1 "github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	authorization "k8s.io/api/authorization/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/redhat-developer/gitops-backend/pkg/git"
 	"github.com/redhat-developer/gitops-backend/pkg/health"
@@ -32,6 +33,10 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	if err := argoV1aplha1.AddToScheme(scheme.Scheme); err != nil {
 		log.Fatalf("failed to initialize ArgoCD scheme, err: %v", err)
+	}
+
+	if err := authorization.AddToScheme(scheme.Scheme); err != nil {
+		log.Fatalf("failed to initialize Authorization scheme, err: %v", err)
 	}
 }
 

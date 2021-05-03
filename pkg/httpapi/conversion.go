@@ -1,9 +1,13 @@
 package httpapi
 
 import (
+	"context"
+	"log"
 	"sort"
 
 	argoV1aplha1 "github.com/argoproj/argo-cd/pkg/apis/application/v1alpha1"
+	authorization "k8s.io/api/authorization/v1"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // TODO: this should really import the config from the upstream and use it to
@@ -29,10 +33,36 @@ func pipelinesToAppsResponse(cfg *config) *appsResponse {
 	return &appsResponse{Apps: apps}
 }
 
-func applicationsToAppsResponse(appSet []*argoV1aplha1.Application) *appsResponse {
+func applicationsToAppsResponse(appSet []*argoV1aplha1.Application, kc ctrlclient.Client, user string) *appsResponse {
 	appsMap := make(map[string]appResponse)
+	var appName string
+
 	for _, app := range appSet {
-		appName := app.ObjectMeta.Labels["app.kubernetes.io/name"]
+		sar := authorization.SubjectAccessReview{
+			Spec: authorization.SubjectAccessReviewSpec{
+				User: user,
+				ResourceAttributes: &authorization.ResourceAttributes{
+					Group:     argoV1aplha1.SchemeGroupVersion.Group,
+					Version:   argoV1aplha1.SchemeGroupVersion.Version,
+					Resource:  app.Kind,
+					Namespace: app.Namespace,
+					Verb:      "get",
+				},
+			},
+		}
+
+		if err := kc.Create(context.TODO(), &sar); err != nil {
+			log.Println("Failed to create SAR, error:", err)
+			continue
+		}
+
+		if !sar.Status.Allowed || sar.Status.Denied {
+			continue
+		}
+
+		if app.ObjectMeta.Labels != nil {
+			appName = app.ObjectMeta.Labels["app.kubernetes.io/name"]
+		}
 		if appName == "" {
 			appName = app.ObjectMeta.Name
 		}
